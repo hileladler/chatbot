@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>עוזר בינה מלאכותית - נדל"ן</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        .message-appear { animation: appear 0.3s ease-out forwards; }
+        @keyframes appear {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="min-h-screen font-sans bg-transparent" dir="rtl">
+
+    <!-- Chat Toggle Button -->
+    <button id="chat-toggle-btn" class="fixed bottom-6 right-6 w-14 h-14 bg-neutral-900 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center z-50 active:scale-95">
+        <i data-lucide="message-circle" id="toggle-icon" class="w-6 h-6"></i>
+    </button>
+
+    <!-- Main Chat Container (Popup) -->
+    <div id="chat-container" class="fixed bottom-24 right-6 w-[90vw] sm:w-[450px] h-[600px] max-h-[80vh] bg-white rounded-2xl shadow-2xl border border-neutral-200 flex flex-col overflow-hidden z-50 transition-all duration-300 transform translate-y-4 opacity-0 pointer-events-none">
+        
+        <!-- Header -->
+        <div class="p-4 border-b border-neutral-100 bg-neutral-900 text-white flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center">
+                    <i data-lucide="bot" class="w-5 h-5 text-white"></i>
+                </div>
+                <div>
+                    <h2 class="font-bold text-sm">עוזר בינה מלאכותית</h2>
+                    <div class="flex items-center gap-1.5">
+                        <div class="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></div>
+                        <span class="text-[10px] text-neutral-400 uppercase tracking-wider font-medium">מחובר</span>
+                    </div>
+                </div>
+            </div>
+            <button id="close-chat" class="p-1 hover:bg-white/10 rounded-md transition-colors">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+        </div>
+
+        <!-- Messages Area -->
+        <div id="messages-area" class="flex-1 overflow-y-auto p-4 space-y-4 bg-neutral-50/50">
+            <!-- Welcome Message -->
+            <div class="flex justify-end message-appear">
+                <div class="flex gap-2 max-w-[85%] flex-row-reverse">
+                    <div class="w-8 h-8 rounded-full bg-neutral-900 flex items-center justify-center flex-shrink-0 shadow-sm">
+                        <i data-lucide="bot" class="w-4 h-4 text-white"></i>
+                    </div>
+                    <div class="p-3 rounded-2xl text-sm leading-relaxed shadow-sm border bg-white text-neutral-800 border-neutral-100 rounded-tr-none">
+                        שלום! אני עוזר הבינה המלאכותית של המשרד. איך אני יכול לעזור לך היום בנושא נדל"ן?
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FAQ Section -->
+        <div class="px-4 py-2 bg-white border-t border-neutral-100">
+            <div class="flex gap-2 overflow-x-auto pb-1 scrollbar-hide" id="faq-container">
+                <!-- FAQs will be injected here -->
+            </div>
+        </div>
+
+        <!-- Input Area -->
+        <form id="chat-form" class="p-4 bg-white border-t border-neutral-100 flex items-center gap-2">
+            <input
+                type="text"
+                id="chat-input"
+                placeholder="הקלד הודעה..."
+                class="flex-1 bg-neutral-100 border-none rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-neutral-900 focus:outline-none transition-all placeholder:text-neutral-400"
+                autocomplete="off"
+            >
+            <button
+                type="submit"
+                id="send-btn"
+                class="p-2 bg-neutral-900 text-white rounded-xl hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 shadow-md"
+            >
+                <i data-lucide="send" class="w-5 h-5"></i>
+            </button>
+        </form>
+    </div>
+
+    <script type="module">
+        import { GoogleGenAI } from "https://esm.sh/@google/genai";
+
+        const KNOWLEDGE_BASE = `
+מידע על המשרד:
+"בעסקאות יוקרה אין פשרות — היכרות עמוקה עם השוק מעניקה ללקוחותינו יתרון אמיתי."
+
+ערכי הליבה:
+1. מקצוענות עמוקה: שמאים, כלכלנים, אנשי שיווק ומגשרים. ניתוח נכסים וניהול מו"מ מדויק.
+2. שקט וביטחון: שליטה בחוזים, תכניות ותמחור.
+3. הובלת תהליך אסטרטגי: תכנון ויישום עד סגירת העסקה במינימום דרמות.
+4. דיסקרטיות: אמינות וזהירות לבעלי נכסי יוקרה.
+5. חיבור אנושי: הקשבה, גישור וניווט לפי צרכי הלקוח.
+
+השותפים:
+- גיא אדלר: שמאי מקרקעין, כלכלן, ניסיון עסקי ויזמי.
+- הדר פרבר: אשת שיווק, תוכן ומגשרת מוסמכת.
+- אסף בובליל: שמאי מקרקעין וכלכלן.
+- מיטל קינן: עו"ד מקרקעין (שיתוף פעולה שוטף).
+- אדריכלים ומעצבים שותפים.
+
+פרטי התקשרות:
+טלפון: 054-454-0954
+כתובת: כרמלי 4, רמת גן, 52223
+
+נכסים למכירה:
+רמת חן:
+- קוטג' חדיש באלוף דוד: 7,900,000 ש"ח, 180 מ"ר, 4 חדרי שינה, חצר 180 מ"ר.
+- דו משפחתי בשיכון על בן צבי: 7,400,000 ש"ח, 5 חדרים, 120 מ"ר, מגרש חצי דונם.
+- בית בודד שיכון צנחנים: 10,900,000 ש"ח, 260 מ"ר בנוי, מגרש 309 מ"ר, כולל יחידת דיור במרתף.
+- קוטג' טורי בסרן דב: 5,490,000 ש"ח, 5 חדרים, 130 מ"ר, חצר 100 מ"ר.
+- קוטג' ייחודי באלוף דוד: 5,790,000 ש"ח, 6 חדרים, חצר פנימית טרופית וחצר 300 מ"ר.
+- קוטג' טורי פינתי בעודד: 5,250,000 ש"ח, 6 חדרים, 140 מ"ר בנוי, מגרש 180 מ"ר.
+- דופלקס באלוף דוד: 6,800,000 ש"ח, מעלית פרטית, 5 חדרים, מרפסות ענקיות.
+- דירת גן ברביעיות: 6,900,000 ש"ח, 6 חדרים, 175 מ"ר + מרתף 70 מ"ר, חצר 300 מ"ר.
+- דו משפחתי חדיש עם בריכה: 10,500,000 ש"ח, 3 מפלסים, מיקום מרכזי.
+- דו משפחתי משופץ (מגרש ענק): 8,900,000 ש"ח, מגרש 380 מ"ר, 6 חדרים.
+- בית קסום על חצי דונם: 10,500,000 ש"ח, 200 מ"ר בנוי, מגרש 500 מ"ר.
+- דו משפחתי עם מעלית: 9,700,000 ש"ח, 280 מ"ר בנוי, רחוב שקט.
+- דירת 4 חדרים משופצת: 3,590,000 ש"ח, 96 מ"ר, זכויות בנייה.
+- דו משפחתי באלוף דוד: 9,000,000 ש"ח, 4 סוויטות למתבגרים + מרתף.
+- בית סבתא עם פוטנציאל: 6,190,000 ש"ח, מגרש 250 מ"ר, אפשרות להוספת קומה.
+- דו משפחתי חדיש (3 סוויטות): 10,500,000 ש"ח, חדר כושר, יחידת דיור במרתף.
+
+רמת אפעל:
+- בית בודד על חצי דונם: 8,800,000 ש"ח, סלון רחב, משרד, גלריה קסומה.
+
+רמת גן:
+- דירת 2 חדרים למשקיעים: 2,050,000 ש"ח, רחוב בר כוכבא, כולל ממ\"ד וחניה.
+
+גבעתיים:
+- דירת גן בשיכון המורים: 3,890,000 ש\"ח, 4 חדרים, 103 מ\"ר, אווירה קהילתית.
+- דירת 3 חדרים בקפלנסקי: 3,180,000 ש\"ח, 85 מ\"ר, מרפסת של פעם, פוטנציאל פינוי-בינוי.
+
+תל אביב:
+- דירת 3 חדרים בנחלת יצחק: 3,850,000 ש\"ח, משופצת, בניין חתום לפינוי-בינוי.
+`;
+
+        const FAQS = [
+            "אילו דירות גן יש ברמת חן?",
+            "אילו נכסים יש בטווח של 5-7 מיליון ש\"ח?",
+            "יש דירות להשקעה ברמת גן?",
+            "אילו בתים בודדים יש למכירה?",
+        ];
+
+        const chatContainer = document.getElementById('chat-container');
+        const chatToggleBtn = document.getElementById('chat-toggle-btn');
+        const toggleIcon = document.getElementById('toggle-icon');
+        const closeChat = document.getElementById('close-chat');
+        const messagesArea = document.getElementById('messages-area');
+        const chatForm = document.getElementById('chat-form');
+        const chatInput = document.getElementById('chat-input');
+        const faqContainer = document.getElementById('faq-container');
+
+        // היסטוריית הודעות ל-UI (כולל הודעת הפתיחה)
+        let uiMessages = [
+            { role: 'model', text: 'שלום! אני עוזר הבינה המלאכותית של המשרד. איך אני יכול לעזור לך היום בנושא נדל"ן?' }
+        ];
+
+        // היסטוריית הודעות ל-API (חייבת להתחיל מהמשתמש)
+        let apiHistory = [];
+
+        let isOpen = false;
+
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // Toggle Logic
+        function toggleChat() {
+            isOpen = !isOpen;
+            if (isOpen) {
+                chatContainer.classList.remove('opacity-0', 'translate-y-4', 'pointer-events-none');
+                chatContainer.classList.add('opacity-100', 'translate-y-0', 'pointer-events-auto');
+                toggleIcon.setAttribute('data-lucide', 'x');
+            } else {
+                chatContainer.classList.add('opacity-0', 'translate-y-4', 'pointer-events-none');
+                chatContainer.classList.remove('opacity-100', 'translate-y-0', 'pointer-events-auto');
+                toggleIcon.setAttribute('data-lucide', 'message-circle');
+            }
+            lucide.createIcons();
+        }
+
+        chatToggleBtn.onclick = toggleChat;
+        closeChat.onclick = toggleChat;
+
+        // Render FAQs
+        FAQS.forEach(faq => {
+            const btn = document.createElement('button');
+            btn.className = 'flex items-center gap-1.5 px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-full text-xs transition-all border border-neutral-200 whitespace-nowrap active:scale-95';
+            btn.innerHTML = `<i data-lucide="help-circle" class="w-3 h-3 text-neutral-400"></i>${faq}`;
+            btn.onclick = () => handleSendMessage(faq);
+            faqContainer.appendChild(btn);
+        });
+        lucide.createIcons();
+
+        async function handleSendMessage(text) {
+            const messageText = text || chatInput.value;
+            if (!messageText.trim()) return;
+
+            // הוספה ל-UI
+            addMessage('user', messageText);
+            chatInput.value = '';
+            
+            const loadingId = addLoadingMessage();
+            
+            try {
+                // --- הגדרת מפתח API ---
+                const apiKey = "YOUR_GEMINI_API_KEY"; 
+                
+                if (!apiKey || apiKey === "YOUR_GEMINI_API_KEY") {
+                    throw new Error("נא להזין מפתח API תקין בשורה 216 של הקוד");
+                }
+
+                const genAI = new GoogleGenAI(apiKey);
+                const model = genAI.getGenerativeModel({ 
+                    model: "gemini-1.5-flash",
+                    systemInstruction: `ענה רק בעברית. שמך הוא "עוזר בינה מלאכותית". השתמש אך ורק במידע הבא: ${KNOWLEDGE_BASE}. אם שואלים אותך משהו שלא מופיע במידע, ענה בנימוס שאינך יודע והצע ליצור קשר בטלפון 054-454-0954. שמור על תשובות קצרות ותמציתיות. התמקד במידע על נכסים, מחירים ומיקומים.`,
+                });
+
+                // הכנת ההודעות ל-API (רק היסטוריה רלוונטית)
+                const chat = model.startChat({
+                    history: apiHistory,
+                });
+
+                const result = await chat.sendMessage(messageText);
+                const response = await result.response;
+                const reply = response.text();
+
+                removeLoadingMessage(loadingId);
+                
+                // עדכון UI
+                addMessage('model', reply);
+                
+                // עדכון היסטוריית API
+                apiHistory.push({ role: 'user', parts: [{ text: messageText }] });
+                apiHistory.push({ role: 'model', parts: [{ text: reply }] });
+
+            } catch (error) {
+                console.error(error);
+                removeLoadingMessage(loadingId);
+                const errorMsg = error.message.includes("API") ? error.message : "מצטער, אירעה שגיאה. אנא נסה שוב מאוחר יותר.";
+                addMessage('model', errorMsg);
+            }
+        }
+
+        function addMessage(role, text) {
+            const div = document.createElement('div');
+            div.className = `flex ${role === 'user' ? 'justify-start' : 'justify-end'} message-appear`;
+            
+            const inner = document.createElement('div');
+            inner.className = `flex gap-2 max-w-[85%] ${role === 'user' ? 'flex-row' : 'flex-row-reverse'}`;
+            
+            const iconDiv = document.createElement('div');
+            iconDiv.className = `w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm ${role === 'user' ? 'bg-neutral-200' : 'bg-neutral-900'}`;
+            iconDiv.innerHTML = `<i data-lucide="${role === 'user' ? 'user' : 'bot'}" class="w-4 h-4 ${role === 'user' ? 'text-neutral-600' : 'text-white'}"></i>`;
+            
+            const textDiv = document.createElement('div');
+            textDiv.className = `p-3 rounded-2xl text-sm leading-relaxed shadow-sm border ${role === 'user' ? 'bg-neutral-900 text-white border-neutral-800 rounded-tl-none' : 'bg-white text-neutral-800 border-neutral-100 rounded-tr-none'}`;
+            textDiv.innerText = text;
+            
+            inner.appendChild(iconDiv);
+            inner.appendChild(textDiv);
+            div.appendChild(inner);
+            messagesArea.appendChild(div);
+            lucide.createIcons();
+            messagesArea.scrollTop = messagesArea.scrollHeight;
+        }
+
+        function addLoadingMessage() {
+            const id = 'loading-' + Date.now();
+            const div = document.createElement('div');
+            div.id = id;
+            div.className = "flex justify-end message-appear";
+            div.innerHTML = `
+                <div class="flex gap-2 max-w-[85%] flex-row-reverse">
+                    <div class="w-8 h-8 rounded-full bg-neutral-900 flex items-center justify-center shadow-sm">
+                        <i data-lucide="bot" class="w-4 h-4 text-white"></i>
+                    </div>
+                    <div class="bg-white p-3 rounded-2xl rounded-tr-none shadow-sm border border-neutral-100">
+                        <div class="w-4 h-4 border-2 border-neutral-300 border-t-neutral-900 rounded-full animate-spin"></div>
+                    </div>
+                </div>
+            `;
+            messagesArea.appendChild(div);
+            lucide.createIcons();
+            messagesArea.scrollTop = messagesArea.scrollHeight;
+            return id;
+        }
+
+        function removeLoadingMessage(id) {
+            const el = document.getElementById(id);
+            if (el) el.remove();
+        }
+
+        chatForm.onsubmit = (e) => {
+            e.preventDefault();
+            handleSendMessage();
+        };
+    </script>
+</body>
+</html>
