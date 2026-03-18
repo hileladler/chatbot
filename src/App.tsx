@@ -154,14 +154,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-4 font-sans" dir="rtl">
-      <div className="text-center max-w-md">
-        <h1 className="text-4xl font-bold text-neutral-900 mb-4 tracking-tight">נדל"ן יוקרה - עוזר חכם</h1>
-        <p className="text-neutral-600 mb-8">
-          לחץ על בועת הצ'אט בפינה הימנית התחתונה כדי להתחיל שיחה עם עוזר הבינה המלאכותית שלנו.
-        </p>
-      </div>
-
+    <div className="min-h-screen bg-transparent font-sans" dir="rtl">
       {/* Chat Toggle Button */}
       <button
         id="chat-toggle-btn"
